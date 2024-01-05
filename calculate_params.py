@@ -161,7 +161,7 @@ def main():
     sage = ForceField('openff-2.1.0.offxml')
     # jsonpath = 'test_bond2.json'
 
-    all_mols = np.loadtxt(compound_list,dtype='str')[:50]
+    all_mols = np.loadtxt(compound_list,dtype='str')[:100]
     # print(all_mols)
     for mol in tqdm.tqdm(all_mols,desc='Calculating geometric parameters'):
         qm_file = qm_dir + mol
