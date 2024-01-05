@@ -1,10 +1,11 @@
 # Import packages
-from dash import Dash, html, dash_table, dcc, callback, Output, Input
+from dash import Dash, html, dash_table, dcc, callback, Output, Input, ctx,exceptions
 import pandas as pd
 import plotly.express as px
 import json
 import plotly.graph_objects as go
 import numpy as np
+import tqdm
 # For drawing:
 from openff.toolkit.topology import FrozenMolecule
 from openff.toolkit import Molecule
@@ -187,7 +188,7 @@ def draw_mols(clickData,fig_title,dtype):
     Input(component_id = 'param-id',component_property='value'),
     Input(component_id = 'data_type',component_property='value')
 )
-def make_figure(fig_title,dtype):
+def make_figure(fig_title,dtype,colors='blue'):
     global JSONS
     json = JSONS[dtype]
     key = fig_title.split(': ')[1]
@@ -208,14 +209,44 @@ def make_figure(fig_title,dtype):
 
     fig = go.Figure(layout=layout)
     fig.add_trace(go.Scatter(x = [df['qm_values'].min(),df['qm_values'].max()],y = [df['qm_values'].min(),df['qm_values'].max()],mode='lines',line=dict(color='black',dash='dash'),name='x=y'))
-    fig.add_trace(go.Scatter(x = df['mm_values'], y = df['qm_values'],mode='markers',marker=dict(color='blue'),name='Data'))
+    fig.add_trace(go.Scatter(x = df['mm_values'], y = df['qm_values'],mode='markers',marker=dict(color=colors),name='Data'))
     try:
-        fig.add_trace(go.Scatter(x = [df['sage_value'][0]], y = [df['sage_value'][0]],mode='markers', marker=dict(size=[15],color='red'),marker_symbol='star',name='Sage'))
+        fig.add_trace(go.Scatter(x = [df['sage_value'][0]], y = [df['sage_value'][0]],mode='markers', marker=dict(size=[15],color='green'),marker_symbol='star',name='Sage'))
     except KeyError:
         pass
 
     return fig
 
+# Borrowed from Brent
+@callback(
+    Output("controls-and-graph",component_property='figure', allow_duplicate=True),
+    [Input("submit", "n_clicks"), Input("smirks_input", "value")],
+    Input('data_type','value'),
+    Input('param-id','value'),
+    prevent_initial_call=True,
+)
+def submit_smirks(_, smirks,dtype,fig_title):
+    global JSONS
+    if ctx.triggered_id == "submit":
+        key = fig_title.split(': ')[1]
+        rec = JSONS[dtype][key]
+        colors = []
+        for m, e in tqdm.tqdm(
+            zip(rec['molecules'], rec['envs']),
+            desc="Labeling molecules",
+            total=len(rec['molecules']),
+        ):
+            mol = Molecule.from_mapped_smiles(m, allow_undefined_stereo=True)
+
+            if (env := mol.chemical_environment_matches(smirks)) and (
+                tuple(e) in env or tuple(e)[::-1] in env
+            ):
+                colors.append("red")
+            else:
+                colors.append("blue")
+                print(e,e[::-1],env)
+        return make_figure(fig_title,dtype,colors=colors)
+    raise exceptions.PreventUpdate()
 
 ######
 #
@@ -294,6 +325,8 @@ app.layout = html.Div([
             )
         ],style={'width': '49%', 'display': 'inline-block'})
     ]),
+    dcc.Input(id="smirks_input", value='Enter tagged SMIRKs', style=dict(width="30vw")),
+    html.Button("Submit", id="submit", n_clicks=0),
 
     html.Div([  # Graph/structures
         html.Div(  # Graph (will auto-update based on param ID chosen from dropdown)
