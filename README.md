@@ -26,7 +26,12 @@ This will create a local server. To use the dashboard, go to the address printed
 Once the dashboard is running, you can toggle between the different datatypes and the different force field parameters. 
 If you click on the data points, it will show the structure of that molecule, with the parameter in question highlighted.
 
-<img width="1246" alt="Screen Shot 2024-01-04 at 4 58 24 PM (2)" src="https://github.com/amcisaac/geom_dash/assets/29759281/53662a75-2554-48d1-913b-4e47e7b9dcfc">
+![Screen Shot 2024-01-04 at 6 00 21 PM](https://github.com/amcisaac/geom_dash/assets/29759281/91203eb0-1446-4ccc-9ec3-ffe3ca7d80eb)
+
+Additionally, you can filter the data based on a SMIRKs pattern, to identify trends in the data. In the box that says "Enter a tagged SMIRKs", enter a pattern, where the appropriate number of atoms are tagged (e.g. for a bond, 2 atoms tagged, for an angle, 3 atoms tagged). Molecules that match the SMIRKs pattern will be highlighted in red.
+
+![Screen Shot 2024-01-04 at 5 58 21 PM](https://github.com/amcisaac/geom_dash/assets/29759281/abb8d1e9-f172-440c-82d2-5d4e2dc8f2cc)
+
 
 ## Note on the code
 
