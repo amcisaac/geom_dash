@@ -8,7 +8,7 @@ import tqdm
 import sys
 
 
-def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict):
+def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter=False):
     '''
     Function to enumerate FF parameters assigned to a molecule (e.g. bond length, angle, dihedral angle),
     calculate the actual value from both QM and MM, and compile a set of parameter dictionaries for plotting.
@@ -27,11 +27,13 @@ def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_dat
     Returns:
         Nothing is returned, but data dictionaries are modified in place.
     '''
-    qm_mol = Molecule(qm_file)
+    # filter_type = True
+    # if filter and len()
+    qm_mol = Molecule(qm_file,allow_undefined_stereo=True)
     qm_mol_rd = Chem.SDMolSupplier(qm_file,removeHs=False)[0]
     qm_conf = qm_mol_rd.GetConformer()
 
-    mm_mol = Molecule(mm_file)
+    mm_mol = Molecule(mm_file,allow_undefined_stereo=True)
     mm_mol_rd = Chem.SDMolSupplier(mm_file,removeHs=False)[0]
     mm_conf = mm_mol_rd.GetConformer()
 
@@ -45,9 +47,11 @@ def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_dat
     angle_dict = dict(molecule_force_list[0]['Angles'])
     proper_dict = dict(molecule_force_list[0]['ProperTorsions'])
     improper_dict = dict(molecule_force_list[0]['ImproperTorsions'])
+    # print(angle_dict)
 
     # qm_data_dict[recordid] = {'Bonds':{},'Angles':{},'ProperTorsions':{},'ImproperTorsions':{}} # record ID: {'Bonds': (idx):qm_bl} --> can be read in to avoid recalc
     # mm_data_dict[recordid] = {'Bonds':{},'Angles':{},'ProperTorsions':{},'ImproperTorsions':{}} # same but for MM
+
 
     # Bonds
     for idx in bond_dict:
@@ -73,8 +77,9 @@ def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_dat
                                         'molecules': [smiles],
                                         'envs': [idx]}
 
+    # print(len(angle_dict.keys()))
     # Angles
-    for idx in angle_dict:
+    for idx in angle_dict.keys():
         b = angle_dict[idx]
 
         # This part could potentially be eliminated by reading in QM geom data
@@ -142,9 +147,9 @@ def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_dat
                                         'molecules': [smiles],
                                         'envs': [idx]}
 
-        return
+    return
 
-def main():
+def main(mm_dir0, ff_file,qm_dir0,conformers=False,dir = '/Users/lexiemcisaac/Documents/OpenFF/conformer_energy_ordering/swope_scripts/benchmarking/'):
     # Collecting data for all molecules
     bond_data_dict = {}
     angle_data_dict = {}
@@ -153,33 +158,51 @@ def main():
     qm_data_dict = {}
     mm_data_dict = {}
 
-    # TODO: make this modifiable easily
-    dir = '/Users/lexiemcisaac/Documents/OpenFF/conformer_energy_ordering/swope_scripts/benchmarking/'
-    compound_list = dir + 'all_molecules.txt'
-    qm_dir = dir + 'b3lyp-d3bj_dzvp/'
-    mm_dir = dir + 'openff-2.1.0/'
-    sage = ForceField('openff-2.1.0.offxml')
-    # jsonpath = 'test_bond2.json'
+    if conformers:
+        compound_list = dir + 'all_molecules.txt'
+    else:
+        compound_list = dir + 'compound.list'
+    qm_dir = dir + qm_dir0
+    mm_dir = dir + mm_dir0
+    sage = ForceField(ff_file,allow_cosmetic_attributes=True)
 
-    all_mols = np.loadtxt(compound_list,dtype='str')[:100]
-    # print(all_mols)
+    all_mols = np.loadtxt(compound_list,dtype='str')#[:10]
+
     for mol in tqdm.tqdm(all_mols,desc='Calculating geometric parameters'):
-        qm_file = qm_dir + mol
-        mm_file = mm_dir + mol
-        add_mol_to_dict(qm_file,mm_file,sage,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)
+        if not conformers:
+            mol += '-00.sdf'
+        qm_file = qm_dir +'/'+ mol
+        mm_file = mm_dir +'/'+ mol
+        try:
+            add_mol_to_dict(qm_file,mm_file,sage,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)#,filter='[r4:1]')
+        except OSError:
+            print('Error with molecule ',mol)
+            pass
 
-    with open('bonds_test2.json','w') as jsonfile:
+    with open('bonds_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
         json.dump(bond_data_dict,jsonfile,indent=4)
 
-    with open('angles_test2.json','w') as jsonfile:
+    with open('angles_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
         json.dump(angle_data_dict,jsonfile,indent=4)
 
-    with open('propers_test2.json','w') as jsonfile:
+    with open('propers_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
         json.dump(proper_data_dict,jsonfile,indent=4)
 
-    with open('impropers_test2.json','w') as jsonfile:
+    with open('impropers_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
         json.dump(improper_data_dict,jsonfile,indent=4)
 
 
 if __name__ == '__main__':
-    main()
+
+    try: mm_dir_prefix = sys.argv[1]
+    except IndexError:
+        mm_dir_prefix = 'openff-2.1.0'
+    try: qm_dir_prefix = sys.argv[3]
+
+    except IndexError:
+        qm_dir_prefix = 'b3lyp-d3bj_dzvp'
+    try: ff = sys.argv[2]
+    except IndexError:
+        ff = 'openff-2.1.0.offxml'
+
+    main(mm_dir_prefix,ff,qm_dir_prefix)

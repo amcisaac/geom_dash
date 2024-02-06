@@ -15,6 +15,7 @@ from rdkit.Chem import Descriptors
 from rdkit.Chem.rdDepictor import Compute2DCoords
 from IPython.display import SVG
 import base64
+import sys
 
 
 DEFAULT_WIDTH = int(980/2)
@@ -208,10 +209,10 @@ def make_figure(fig_title,dtype,colors='blue'):
     ) )
 
     fig = go.Figure(layout=layout)
-    fig.add_trace(go.Scatter(x = [df['qm_values'].min(),df['qm_values'].max()],y = [df['qm_values'].min(),df['qm_values'].max()],mode='lines',line=dict(color='black',dash='dash'),name='x=y'))
-    fig.add_trace(go.Scatter(x = df['mm_values'], y = df['qm_values'],mode='markers',marker=dict(color=colors),name='Data'))
+    fig.add_trace(go.Scattergl(x = [df['qm_values'].min(),df['qm_values'].max()],y = [df['qm_values'].min(),df['qm_values'].max()],mode='lines',line=dict(color='black',dash='dash'),name='x=y'))
+    fig.add_trace(go.Scattergl(x = df['mm_values'], y = df['qm_values'],mode='markers',marker=dict(color=colors),name='Data'))
     try:
-        fig.add_trace(go.Scatter(x = [df['sage_value'][0]], y = [df['sage_value'][0]],mode='markers', marker=dict(size=[15],color='green'),marker_symbol='star',name='Sage'))
+        fig.add_trace(go.Scattergl(x = [df['sage_value'][0]], y = [df['sage_value'][0]],mode='markers', marker=dict(size=[15],color='green'),marker_symbol='star',name='Sage'))
     except KeyError:
         pass
 
@@ -244,7 +245,7 @@ def submit_smirks(_, smirks,dtype,fig_title):
                 colors.append("red")
             else:
                 colors.append("blue")
-                print(e,e[::-1],env)
+                # print(e,e[::-1],env)
         return make_figure(fig_title,dtype,colors=colors)
     raise exceptions.PreventUpdate()
 
@@ -254,11 +255,13 @@ def submit_smirks(_, smirks,dtype,fig_title):
 #
 ######
 
+suffix = sys.argv[1]
+
 # First load in all data so it's available easily for toggling
-BOND_DATA_FILE='bonds_test2.json'
-ANGLE_DATA_FILE='angles_test2.json'
-PROPER_DATA_FILE='propers_test2.json'
-IMPROPER_DATA_FILE='impropers_test2.json'
+BOND_DATA_FILE='bonds_qmv{}.json'.format(suffix)
+ANGLE_DATA_FILE='angles_qmv{}.json'.format(suffix)
+PROPER_DATA_FILE='propers_qmv{}.json'.format(suffix)
+IMPROPER_DATA_FILE='impropers_qmv{}.json'.format(suffix)
 
 with open(BOND_DATA_FILE,'r') as jsonfile:
     BOND_JSON = dict(json.load(jsonfile))
@@ -295,6 +298,9 @@ all_label_options = {
     'Proper Torsions': [PARAM_IDS['Proper Torsions'][i] + ': '+KEYS['Proper Torsions'][i] for i in range(0,len(PARAM_IDS['Proper Torsions']))],
     'Improper Torsions': [PARAM_IDS['Improper Torsions'][i] + ': '+KEYS['Improper Torsions'][i] for i in range(0,len(PARAM_IDS['Improper Torsions']))]
 }
+
+for key in all_label_options.keys():
+    all_label_options[key].sort()
 
 @callback(
     Output('param-id','options'),
