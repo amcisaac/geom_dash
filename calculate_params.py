@@ -6,9 +6,13 @@ from openff.toolkit import Molecule, ForceField, Topology
 import json
 import tqdm
 import sys
+from ibstore import MoleculeStore
+from openff.units import unit
+import click
 
 
-def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter=False):
+# def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter=False):
+def add_mol_to_dict(qm_mol_rd,mm_mol_rd,smiles,recordid,molecule_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter=False):
     '''
     Function to enumerate FF parameters assigned to a molecule (e.g. bond length, angle, dihedral angle),
     calculate the actual value from both QM and MM, and compile a set of parameter dictionaries for plotting.
@@ -29,19 +33,11 @@ def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_dat
     '''
     # filter_type = True
     # if filter and len()
-    qm_mol = Molecule(qm_file,allow_undefined_stereo=True)
-    qm_mol_rd = Chem.SDMolSupplier(qm_file,removeHs=False)[0]
-    qm_conf = qm_mol_rd.GetConformer()
 
-    mm_mol = Molecule(mm_file,allow_undefined_stereo=True)
-    mm_mol_rd = Chem.SDMolSupplier(mm_file,removeHs=False)[0]
+    qm_conf = qm_mol_rd.GetConformer()
     mm_conf = mm_mol_rd.GetConformer()
 
-    recordid = qm_mol_rd.GetPropsAsDict()['Record QCArchive']
-    smiles = qm_mol.to_smiles(mapped=True)
-
-    topo = Topology.from_molecules([qm_mol])
-    molecule_force_list = ff.label_molecules(topo) # dictionary of forces for the molecule, keys are type of force ('Bonds', 'Angles', etc)
+    # START HERE--input qm_mols_rd, mm_mols_rd, molecule_force_list, smiles, recordid
     # these have the form {(atom1 idx, atom2 idx,...): FF parameter} for all bonds/angles/torsions in the molecule
     bond_dict = dict(molecule_force_list[0]['Bonds'])
     angle_dict = dict(molecule_force_list[0]['Angles'])
@@ -149,7 +145,137 @@ def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_dat
 
     return
 
-def main(mm_dir0, ff_file,qm_dir0,conformers=False,dir = '/Users/lexiemcisaac/Documents/OpenFF/conformer_energy_ordering/swope_scripts/benchmarking/'):
+def get_mols_from_sqlite(sqlite_store,ff_file,all_data_dicts,conformers=False):
+    from ibstore import MoleculeStore
+    # print(ff)
+    store = MoleculeStore(sqlite_store)
+    mol_ids = store.get_molecule_ids() # each molecule has many conformers
+    # print(mol_ids)
+    all_smiles = store.get_smiles() # these are the unique mapped smiles
+    qca_ids = [store.get_qcarchive_ids_by_molecule_id(i) for i in mol_ids] # grouped by conformer
+
+    # mm_confs = []
+    ff = ForceField(ff_file,allow_cosmetic_attributes=True)
+    ff_file_name = ff_file.split('/')[-1]
+    smiles_no_errs = []
+    qca_ids_no_errs = []
+    qm_confs = []
+    mm_confs = []
+    errors = []
+    bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,qm_data_dict,mm_data_dict = all_data_dicts
+
+    mol_ids = mol_ids[:10]
+    total = 0
+    if not conformers:
+        for idx in tqdm.tqdm(range(0,len(mol_ids)),desc='Calculating geometric parameters'):
+            i = mol_ids[idx]
+            total += 1
+            try:
+                qca_id = qca_ids[idx][0]
+                mapped_smiles = all_smiles[idx]
+
+                mm_conf = store.get_mm_conformers_by_molecule_id(i,force_field = ff_file_name)[0]
+                qm_conf = store.get_qm_conformers_by_molecule_id(i)[0]
+
+                mm_mol = Molecule.from_mapped_smiles(mapped_smiles)
+                mm_mol.add_conformer(mm_conf*unit.angstrom)
+                mm_mol_rdkit = mm_mol.to_rdkit()
+
+                qm_mol = Molecule.from_mapped_smiles(mapped_smiles)
+                qm_mol.add_conformer(qm_conf*unit.angstrom)
+                qm_mol_rdkit = qm_mol.to_rdkit()
+
+                topol = Topology.from_molecules([qm_mol])
+                mol_force_list = ff.label_molecules(topol)
+
+                add_mol_to_dict(qm_mol_rdkit,mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)
+
+            except IndexError:
+                # print('Error with molecule ID {}'.format(i))
+                errors.append(i)
+
+    else:
+        for idx in tqdm.tqdm(range(0,len(mol_ids)),desc='Calculating geometric parameters'):
+        # for i,mol in enuemrate(qca_ids): # this is grouped by _molecule_
+            mm_confs_i = store.get_mm_conformers_by_molecule_id(mol_ids[idx],force_field = ff_file_name)
+            qm_confs_i = store.get_qm_conformers_by_molecule_id(mol_ids[idx])
+            for j,qca_id in enumerate(qca_ids[idx]):
+                total += 1
+                try:
+                    mm_conf = mm_confs_i[j] # flatten these
+                    qm_conf = qm_confs_i[j]
+                    mapped_smiles = all_smiles[idx] # pull by the index of the _molecule_ and repeat nconf number of times
+                    # qca_id = end(qca_ids[i][j]) # flatten qca_ids
+
+                    mm_mol = Molecule.from_mapped_smiles(mapped_smiles)
+                    mm_mol.add_conformer(mm_conf*unit.angstrom)
+                    mm_mol_rdkit = mm_mol.to_rdkit()
+
+                    qm_mol = Molecule.from_mapped_smiles(mapped_smiles)
+                    qm_mol.add_conformer(qm_conf*unit.angstrom)
+                    qm_mol_rdkit = qm_mol.to_rdkit()
+
+                    topol = Topology.from_molecules([qm_mol])
+                    mol_force_list = ff.label_molecules(topol)
+
+                    add_mol_to_dict(qm_mol_rdkit,mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)
+
+                except IndexError:
+                    # print('Error with molecule ID {} conformer {}'.format(i,j))
+                    errors.append(mol_ids[idx])
+
+    print('Number of errors: {} out of {}'.format(len(errors),total))
+
+
+def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,conformers=False,dir = '/Users/lexiemcisaac/Documents/OpenFF/conformer_energy_ordering/swope_scripts/benchmarking/'):
+
+    if conformers:
+        compound_list = dir + 'all_molecules.txt'
+    else:
+        compound_list = dir + 'compound.list'
+    qm_dir = dir + qm_dir0
+    mm_dir = dir + mm_dir0
+    ff = ForceField(ff_file,allow_cosmetic_attributes=True)
+
+    all_mols = np.loadtxt(compound_list,dtype='str')#[:10]
+
+    bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,qm_data_dict,mm_data_dict = all_data_dicts
+    for mol in tqdm.tqdm(all_mols,desc='Calculating geometric parameters'):
+        if not conformers:
+            mol += '-00.sdf'
+        qm_file = qm_dir +'/'+ mol
+        mm_file = mm_dir +'/'+ mol
+
+        qm_mol = Molecule(qm_file,allow_undefined_stereo=True)
+        qm_mol_rdkit = Chem.SDMolSupplier(qm_file,removeHs=False)[0]
+
+
+        mm_mol = Molecule(mm_file,allow_undefined_stereo=True)
+        mm_mol_rdkit = Chem.SDMolSupplier(mm_file,removeHs=False)[0]
+
+
+        qca_id = qm_mol_rdkit.GetPropsAsDict()['Record QCArchive']
+        mapped_smiles = qm_mol.to_smiles(mapped=True)
+
+        topol = Topology.from_molecules([qm_mol])
+        mol_force_list = ff.label_molecules(topol) # dictionary of forces for the molecule, keys are type of force ('Bonds', 'Angles', etc)
+        try:
+            add_mol_to_dict(qm_mol_rdkit, mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)
+            # add_mol_to_dict(qm_file,mm_file,sage,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)#,filter='[r4:1]')
+        except OSError:
+            print('Error with molecule ',mol)
+            pass
+
+
+@click.command()
+@click.option('--db',default=None,help='SQlite database to read from')
+@click.option('--mm_dir',default=None,help='directory with MM optimization SDF files')
+@click.option('--qm_dir',default='b3lyp-d3bj_dzvp',help='directory with QM optimization SDF files')
+@click.option('--ff_file',default='openff-2.1.0.offxml',help='Force field to group parameters by')
+@click.option('--conformers',default=False,help='Whether to use all conformers. If False, just use the first conformer for each molecule')
+@click.option('--dir',default = '/Users/lexiemcisaac/Documents/OpenFF/conformer_energy_ordering/swope_scripts/benchmarking/',help='Directory where QM and MM directories are located')
+@click.option('--label',default=None,help='Label to save data with')
+def main(db,mm_dir,qm_dir,ff_file,conformers,dir,label):
     # Collecting data for all molecules
     bond_data_dict = {}
     angle_data_dict = {}
@@ -158,51 +284,29 @@ def main(mm_dir0, ff_file,qm_dir0,conformers=False,dir = '/Users/lexiemcisaac/Do
     qm_data_dict = {}
     mm_data_dict = {}
 
-    if conformers:
-        compound_list = dir + 'all_molecules.txt'
+    all_data_dicts = [bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,qm_data_dict,mm_data_dict]
+
+    if db == None:
+        get_mols_from_files(mm_dir,ff_file,qm_dir,all_data_dicts,conformers=conformers,dir=dir)
     else:
-        compound_list = dir + 'compound.list'
-    qm_dir = dir + qm_dir0
-    mm_dir = dir + mm_dir0
-    sage = ForceField(ff_file,allow_cosmetic_attributes=True)
+        get_mols_from_sqlite(db,ff_file,all_data_dicts,conformers=conformers)
 
-    all_mols = np.loadtxt(compound_list,dtype='str')#[:10]
+    if label == None:
+        label = '.'.join(ff_file.split('/')[-1].split('.')[:-1])
+    # print(ff_name)
 
-    for mol in tqdm.tqdm(all_mols,desc='Calculating geometric parameters'):
-        if not conformers:
-            mol += '-00.sdf'
-        qm_file = qm_dir +'/'+ mol
-        mm_file = mm_dir +'/'+ mol
-        try:
-            add_mol_to_dict(qm_file,mm_file,sage,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)#,filter='[r4:1]')
-        except OSError:
-            print('Error with molecule ',mol)
-            pass
-
-    with open('bonds_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
+    with open('bonds_qmv{}.json'.format(label),'w') as jsonfile:
         json.dump(bond_data_dict,jsonfile,indent=4)
 
-    with open('angles_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
+    with open('angles_qmv{}.json'.format(label),'w') as jsonfile:
         json.dump(angle_data_dict,jsonfile,indent=4)
 
-    with open('propers_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
+    with open('propers_qmv{}.json'.format(label),'w') as jsonfile:
         json.dump(proper_data_dict,jsonfile,indent=4)
 
-    with open('impropers_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
+    with open('impropers_qmv{}.json'.format(label),'w') as jsonfile:
         json.dump(improper_data_dict,jsonfile,indent=4)
 
 
 if __name__ == '__main__':
-
-    try: mm_dir_prefix = sys.argv[1]
-    except IndexError:
-        mm_dir_prefix = 'openff-2.1.0'
-    try: qm_dir_prefix = sys.argv[3]
-
-    except IndexError:
-        qm_dir_prefix = 'b3lyp-d3bj_dzvp'
-    try: ff = sys.argv[2]
-    except IndexError:
-        ff = 'openff-2.1.0.offxml'
-
-    main(mm_dir_prefix,ff,qm_dir_prefix)
+    main()

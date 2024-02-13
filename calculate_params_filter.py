@@ -184,14 +184,14 @@ def main(mm_dir0, ff_file,qm_dir0,conformers=False,dir = '/Users/lexiemcisaac/Do
         qm_file = qm_dir +'/'+ mol
         mm_file = mm_dir +'/'+ mol
         try:
-            add_mol_to_dict(qm_file,mm_file,sage,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter='[r4:1]')
+            add_mol_to_dict(qm_file,mm_file,sage,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter='[#7]~[#16X4:1](=[#8])(~[*])=[#8]')
         except OSError:
             pass
 
     # with open('bonds_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
     #     json.dump(bond_data_dict,jsonfile,indent=4)
 
-    with open('angles_qmv{}_r4.json'.format(mm_dir0),'w') as jsonfile:
+    with open('angles_qmv{}_sulfonamide.json'.format(mm_dir0),'w') as jsonfile:
         json.dump(angle_data_dict,jsonfile,indent=4)
 
     # with open('propers_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
@@ -214,4 +214,4 @@ if __name__ == '__main__':
     except IndexError:
         ff = 'openff-2.1.0.offxml'
 
-    main(mm_dir_prefix,ff,qm_dir_prefix)
+    main(mm_dir_prefix,ff,qm_dir_prefix,conformers=False)

@@ -256,6 +256,9 @@ def submit_smirks(_, smirks,dtype,fig_title):
 ######
 
 suffix = sys.argv[1]
+try: port = sys.argv[2]
+except IndexError:
+    port = 8050
 
 # First load in all data so it's available easily for toggling
 BOND_DATA_FILE='bonds_qmv{}.json'.format(suffix)
@@ -355,4 +358,4 @@ app.layout = html.Div([
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True,port=port)
