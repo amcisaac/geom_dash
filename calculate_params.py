@@ -12,7 +12,7 @@ import click
 
 
 # def add_mol_to_dict(qm_file,mm_file,ff,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter=False):
-def add_mol_to_dict(qm_mol_rd,mm_mol_rd,smiles,recordid,molecule_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter=False):
+def add_mol_to_dict(qm_mol_rd,mm_mol_rd,smiles,recordid,molecule_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter=None):
     '''
     Function to enumerate FF parameters assigned to a molecule (e.g. bond length, angle, dihedral angle),
     calculate the actual value from both QM and MM, and compile a set of parameter dictionaries for plotting.
@@ -31,13 +31,10 @@ def add_mol_to_dict(qm_mol_rd,mm_mol_rd,smiles,recordid,molecule_force_list,bond
     Returns:
         Nothing is returned, but data dictionaries are modified in place.
     '''
-    # filter_type = True
-    # if filter and len()
 
     qm_conf = qm_mol_rd.GetConformer()
     mm_conf = mm_mol_rd.GetConformer()
 
-    # START HERE--input qm_mols_rd, mm_mols_rd, molecule_force_list, smiles, recordid
     # these have the form {(atom1 idx, atom2 idx,...): FF parameter} for all bonds/angles/torsions in the molecule
     bond_dict = dict(molecule_force_list[0]['Bonds'])
     angle_dict = dict(molecule_force_list[0]['Angles'])
@@ -48,104 +45,126 @@ def add_mol_to_dict(qm_mol_rd,mm_mol_rd,smiles,recordid,molecule_force_list,bond
     # qm_data_dict[recordid] = {'Bonds':{},'Angles':{},'ProperTorsions':{},'ImproperTorsions':{}} # record ID: {'Bonds': (idx):qm_bl} --> can be read in to avoid recalc
     # mm_data_dict[recordid] = {'Bonds':{},'Angles':{},'ProperTorsions':{},'ImproperTorsions':{}} # same but for MM
 
+    if filter:
+        qm_mol = Molecule.from_rdkit(qm_mol_rd)
+        matches = qm_mol.chemical_environment_matches(filter)
 
     # Bonds
     for idx in bond_dict:
         b = bond_dict[idx]
 
-        # This part could potentially be eliminated by reading in QM geom data
-        qm_bl = Chem.rdMolTransforms.GetBondLength(qm_conf,idx[0],idx[1])
-        # qm_data_dict[recordid]['Bonds'][idx] = qm_bl
+        if filter:
+            filter_condition = (idx[0],) in matches or (idx[1],) in matches
 
-        mm_bl = Chem.rdMolTransforms.GetBondLength(mm_conf,idx[0],idx[1]) # A
-        # mm_data_dict[recordid]['Bonds'][idx] = mm_bl
+        if (filter and filter_condition) or not filter:
+            # This part could potentially be eliminated by reading in QM geom data
+            qm_bl = Chem.rdMolTransforms.GetBondLength(qm_conf,idx[0],idx[1])
+            # qm_data_dict[recordid]['Bonds'][idx] = qm_bl
 
-        if b.smirks in bond_data_dict:
-            bond_data_dict[b.smirks]['molecules'].append(smiles)
-            bond_data_dict[b.smirks]['envs'].append(idx)
-            bond_data_dict[b.smirks]['qm_values'].append(qm_bl)
-            bond_data_dict[b.smirks]['mm_values'].append(mm_bl)
-        else:
-            bond_data_dict[b.smirks] = {'ident':b.id,
-                                        'sage_value': b.length.magnitude,
-                                        'qm_values': [qm_bl],
-                                        'mm_values': [mm_bl],
-                                        'molecules': [smiles],
-                                        'envs': [idx]}
+            mm_bl = Chem.rdMolTransforms.GetBondLength(mm_conf,idx[0],idx[1]) # A
+            # mm_data_dict[recordid]['Bonds'][idx] = mm_bl
+
+            if b.smirks in bond_data_dict:
+                bond_data_dict[b.smirks]['molecules'].append(smiles)
+                bond_data_dict[b.smirks]['envs'].append(idx)
+                bond_data_dict[b.smirks]['qm_values'].append(qm_bl)
+                bond_data_dict[b.smirks]['mm_values'].append(mm_bl)
+            else:
+                bond_data_dict[b.smirks] = {'ident':b.id,
+                                            'sage_value': b.length.magnitude,
+                                            'qm_values': [qm_bl],
+                                            'mm_values': [mm_bl],
+                                            'molecules': [smiles],
+                                            'envs': [idx]}
 
     # print(len(angle_dict.keys()))
     # Angles
     for idx in angle_dict.keys():
         b = angle_dict[idx]
 
-        # This part could potentially be eliminated by reading in QM geom data
-        qm_ang = Chem.rdMolTransforms.GetAngleDeg(qm_conf,idx[0],idx[1],idx[2])
-        # qm_data_dict[recordid]['Angles'][idx] = qm_ang
-        mm_ang = Chem.rdMolTransforms.GetAngleDeg(mm_conf,idx[0],idx[1],idx[2])
-        # mm_data_dict[recordid]['Angles'][idx] = mm_ang
+        if filter:
+            filter_condition = ((idx[0],) in matches or (idx[1],) in matches) or (idx[2],) in matches
 
-        if b.smirks in angle_data_dict:
-            angle_data_dict[b.smirks]['molecules'].append(smiles)
-            angle_data_dict[b.smirks]['envs'].append(idx)
-            angle_data_dict[b.smirks]['qm_values'].append(qm_ang)
-            angle_data_dict[b.smirks]['mm_values'].append(mm_ang)
-        else:
-            angle_data_dict[b.smirks] = {'ident':b.id,
-                                        'sage_value': b.angle.magnitude,
-                                        'qm_values': [qm_ang],
-                                        'mm_values': [mm_ang],
-                                        'molecules': [smiles],
-                                        'envs': [idx]}
+        if (filter and filter_condition) or not filter:
+
+            # This part could potentially be eliminated by reading in QM geom data
+            qm_ang = Chem.rdMolTransforms.GetAngleDeg(qm_conf,idx[0],idx[1],idx[2])
+            # qm_data_dict[recordid]['Angles'][idx] = qm_ang
+            mm_ang = Chem.rdMolTransforms.GetAngleDeg(mm_conf,idx[0],idx[1],idx[2])
+            # mm_data_dict[recordid]['Angles'][idx] = mm_ang
+
+            if b.smirks in angle_data_dict:
+                angle_data_dict[b.smirks]['molecules'].append(smiles)
+                angle_data_dict[b.smirks]['envs'].append(idx)
+                angle_data_dict[b.smirks]['qm_values'].append(qm_ang)
+                angle_data_dict[b.smirks]['mm_values'].append(mm_ang)
+            else:
+                angle_data_dict[b.smirks] = {'ident':b.id,
+                                            'sage_value': b.angle.magnitude,
+                                            'qm_values': [qm_ang],
+                                            'mm_values': [mm_ang],
+                                            'molecules': [smiles],
+                                            'envs': [idx]}
 
     # Proper Torsions
     for idx in proper_dict:
         b = proper_dict[idx]
 
-        # This part could potentially be eliminated by reading in QM geom data
-        qm_tor = Chem.rdMolTransforms.GetDihedralDeg(qm_conf,idx[0],idx[1],idx[2],idx[3])
-        # qm_data_dict[recordid]['ProperTorsions'][idx] = qm_tor
-        mm_tor = Chem.rdMolTransforms.GetDihedralDeg(mm_conf,idx[0],idx[1],idx[2],idx[3])
-        # mm_data_dict[recordid]['ProperTorsions'][idx] = mm_tor
+        if filter:
+            filter_condition = ((idx[0],) in matches or (idx[1],) in matches) or ((idx[2],) in matches or (idx[3],) in matches)
 
-        if b.smirks in proper_data_dict:
-            proper_data_dict[b.smirks]['molecules'].append(smiles)
-            proper_data_dict[b.smirks]['envs'].append(idx)
-            proper_data_dict[b.smirks]['qm_values'].append(qm_tor)
-            proper_data_dict[b.smirks]['mm_values'].append(mm_tor)
-        else:
-            proper_data_dict[b.smirks] = {'ident':b.id,
-                                        # 'sage_value': b.angle.magnitude,
-                                        'qm_values': [qm_tor],
-                                        'mm_values': [mm_tor],
-                                        'molecules': [smiles],
-                                        'envs': [idx]}
+        if (filter and filter_condition) or not filter:
+
+            # This part could potentially be eliminated by reading in QM geom data
+            qm_tor = Chem.rdMolTransforms.GetDihedralDeg(qm_conf,idx[0],idx[1],idx[2],idx[3])
+            # qm_data_dict[recordid]['ProperTorsions'][idx] = qm_tor
+            mm_tor = Chem.rdMolTransforms.GetDihedralDeg(mm_conf,idx[0],idx[1],idx[2],idx[3])
+            # mm_data_dict[recordid]['ProperTorsions'][idx] = mm_tor
+
+            if b.smirks in proper_data_dict:
+                proper_data_dict[b.smirks]['molecules'].append(smiles)
+                proper_data_dict[b.smirks]['envs'].append(idx)
+                proper_data_dict[b.smirks]['qm_values'].append(qm_tor)
+                proper_data_dict[b.smirks]['mm_values'].append(mm_tor)
+            else:
+                proper_data_dict[b.smirks] = {'ident':b.id,
+                                            # 'sage_value': b.angle.magnitude,
+                                            'qm_values': [qm_tor],
+                                            'mm_values': [mm_tor],
+                                            'molecules': [smiles],
+                                            'envs': [idx]}
 
     # Improper Torsions
     for idx in improper_dict:
         b = improper_dict[idx]
 
-        # This part could potentially be eliminated by reading in QM geom data
-        qm_tor = Chem.rdMolTransforms.GetDihedralDeg(qm_conf,idx[0],idx[1],idx[2],idx[3])
-        # qm_data_dict[recordid]['ProperTorsions'][idx] = qm_tor
-        mm_tor = Chem.rdMolTransforms.GetDihedralDeg(mm_conf,idx[0],idx[1],idx[2],idx[3])
-        # mm_data_dict[recordid]['ProperTorsions'][idx] = mm_tor
+        if filter:
+            filter_condition = ((idx[0],) in matches or (idx[1],) in matches) or ((idx[2],) in matches or (idx[3],) in matches)
 
-        if b.smirks in improper_data_dict:
-            improper_data_dict[b.smirks]['molecules'].append(smiles)
-            improper_data_dict[b.smirks]['envs'].append(idx)
-            improper_data_dict[b.smirks]['qm_values'].append(qm_tor)
-            improper_data_dict[b.smirks]['mm_values'].append(mm_tor)
-        else:
-            improper_data_dict[b.smirks] = {'ident':b.id,
-                                        # 'sage_value': b.angle.magnitude,
-                                        'qm_values': [qm_tor],
-                                        'mm_values': [mm_tor],
-                                        'molecules': [smiles],
-                                        'envs': [idx]}
+        if (filter and filter_condition) or not filter:
+
+            # This part could potentially be eliminated by reading in QM geom data
+            qm_tor = Chem.rdMolTransforms.GetDihedralDeg(qm_conf,idx[0],idx[1],idx[2],idx[3])
+            # qm_data_dict[recordid]['ProperTorsions'][idx] = qm_tor
+            mm_tor = Chem.rdMolTransforms.GetDihedralDeg(mm_conf,idx[0],idx[1],idx[2],idx[3])
+            # mm_data_dict[recordid]['ProperTorsions'][idx] = mm_tor
+
+            if b.smirks in improper_data_dict:
+                improper_data_dict[b.smirks]['molecules'].append(smiles)
+                improper_data_dict[b.smirks]['envs'].append(idx)
+                improper_data_dict[b.smirks]['qm_values'].append(qm_tor)
+                improper_data_dict[b.smirks]['mm_values'].append(mm_tor)
+            else:
+                improper_data_dict[b.smirks] = {'ident':b.id,
+                                            # 'sage_value': b.angle.magnitude,
+                                            'qm_values': [qm_tor],
+                                            'mm_values': [mm_tor],
+                                            'molecules': [smiles],
+                                            'envs': [idx]}
 
     return
 
-def get_mols_from_sqlite(sqlite_store,ff_file,all_data_dicts,conformers=False):
+def get_mols_from_sqlite(sqlite_store,ff_file,all_data_dicts,filter_pattern=None,conformers=False):
     from ibstore import MoleculeStore
     # print(ff)
     store = MoleculeStore(sqlite_store)
@@ -188,7 +207,7 @@ def get_mols_from_sqlite(sqlite_store,ff_file,all_data_dicts,conformers=False):
                 topol = Topology.from_molecules([qm_mol])
                 mol_force_list = ff.label_molecules(topol)
 
-                add_mol_to_dict(qm_mol_rdkit,mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)
+                add_mol_to_dict(qm_mol_rdkit,mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter_pattern=filter_pattern)
 
             except IndexError:
                 # print('Error with molecule ID {}'.format(i))
@@ -218,7 +237,7 @@ def get_mols_from_sqlite(sqlite_store,ff_file,all_data_dicts,conformers=False):
                     topol = Topology.from_molecules([qm_mol])
                     mol_force_list = ff.label_molecules(topol)
 
-                    add_mol_to_dict(qm_mol_rdkit,mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)
+                    add_mol_to_dict(qm_mol_rdkit,mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter_pattern=filter_pattern)
 
                 except IndexError:
                     # print('Error with molecule ID {} conformer {}'.format(i,j))
@@ -227,7 +246,7 @@ def get_mols_from_sqlite(sqlite_store,ff_file,all_data_dicts,conformers=False):
     print('Number of errors: {} out of {}'.format(len(errors),total))
 
 
-def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,conformers=False,dir = '/Users/lexiemcisaac/Documents/OpenFF/conformer_energy_ordering/swope_scripts/benchmarking/'):
+def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,filter_pattern=None,conformers=False,dir = '/Users/lexiemcisaac/Documents/OpenFF/conformer_energy_ordering/swope_scripts/benchmarking/'):
 
     if conformers:
         compound_list = dir + 'all_molecules.txt'
@@ -260,7 +279,7 @@ def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,conformers=False,
         topol = Topology.from_molecules([qm_mol])
         mol_force_list = ff.label_molecules(topol) # dictionary of forces for the molecule, keys are type of force ('Bonds', 'Angles', etc)
         try:
-            add_mol_to_dict(qm_mol_rdkit, mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)
+            add_mol_to_dict(qm_mol_rdkit, mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter_pattern=filter_pattern)
             # add_mol_to_dict(qm_file,mm_file,sage,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict)#,filter='[r4:1]')
         except OSError:
             print('Error with molecule ',mol)
@@ -275,6 +294,7 @@ def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,conformers=False,
 @click.option('--conformers',default=False,help='Whether to use all conformers. If False, just use the first conformer for each molecule')
 @click.option('--dir',default = '/Users/lexiemcisaac/Documents/OpenFF/conformer_energy_ordering/swope_scripts/benchmarking/',help='Directory where QM and MM directories are located')
 @click.option('--label',default=None,help='Label to save data with')
+@click.option('--filter',default=None,help='SMARTS pattern to filter for. Must have at least one tagged atom')
 def main(db,mm_dir,qm_dir,ff_file,conformers,dir,label):
     # Collecting data for all molecules
     bond_data_dict = {}
@@ -287,9 +307,9 @@ def main(db,mm_dir,qm_dir,ff_file,conformers,dir,label):
     all_data_dicts = [bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,qm_data_dict,mm_data_dict]
 
     if db == None:
-        get_mols_from_files(mm_dir,ff_file,qm_dir,all_data_dicts,conformers=conformers,dir=dir)
+        get_mols_from_files(mm_dir,ff_file,qm_dir,all_data_dicts,filter_pattern=filter,conformers=conformers,dir=dir)
     else:
-        get_mols_from_sqlite(db,ff_file,all_data_dicts,conformers=conformers)
+        get_mols_from_sqlite(db,ff_file,all_data_dicts,filter_pattern=filter,conformers=conformers)
 
     if label == None:
         label = '.'.join(ff_file.split('/')[-1].split('.')[:-1])

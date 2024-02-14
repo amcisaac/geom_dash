@@ -191,7 +191,7 @@ def main(mm_dir0, ff_file,qm_dir0,conformers=False,dir = '/Users/lexiemcisaac/Do
     # with open('bonds_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
     #     json.dump(bond_data_dict,jsonfile,indent=4)
 
-    with open('angles_qmv{}_sulfonamide.json'.format(mm_dir0),'w') as jsonfile:
+    with open('angles_qmv{}_sulfonamide_confs.json'.format(mm_dir0),'w') as jsonfile:
         json.dump(angle_data_dict,jsonfile,indent=4)
 
     # with open('propers_qmv{}.json'.format(mm_dir0),'w') as jsonfile:
@@ -214,4 +214,4 @@ if __name__ == '__main__':
     except IndexError:
         ff = 'openff-2.1.0.offxml'
 
-    main(mm_dir_prefix,ff,qm_dir_prefix,conformers=False)
+    main(mm_dir_prefix,ff,qm_dir_prefix,conformers=True)

@@ -259,7 +259,7 @@ suffix = sys.argv[1]
 
 # First load in all data so it's available easily for toggling
 BOND_DATA_FILE='bonds_qmv{}.json'.format(suffix)
-ANGLE_DATA_FILE='angles_qmv{}_r4.json'.format(suffix)
+ANGLE_DATA_FILE='angles_qmv{}_sulfonamide.json'.format(suffix)
 PROPER_DATA_FILE='propers_qmv{}.json'.format(suffix)
 IMPROPER_DATA_FILE='impropers_qmv{}.json'.format(suffix)
 
@@ -355,4 +355,4 @@ app.layout = html.Div([
 
 
 if __name__ == '__main__':
-    app.run(debug=True,port=8070)
+    app.run(debug=True,port=8071)
