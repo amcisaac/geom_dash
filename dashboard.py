@@ -172,7 +172,7 @@ def draw_mols(clickData,fig_title,dtype):
         atom_idx = json_file[key]['envs'][idx]
         smiles = json_file[key]['molecules'][idx]
 
-        svg = draw_molecule_svg(Molecule.from_mapped_smiles(smiles),highlight_atoms=atom_idx)
+        svg = draw_molecule_svg(Molecule.from_mapped_smiles(smiles,allow_undefined_stereo=True),highlight_atoms=atom_idx)
 
         # Took this part from Brent
         try:
