@@ -5,10 +5,10 @@ from rdkit.Chem import rdMolTransforms
 from openff.toolkit import Molecule, ForceField, Topology
 import json
 import tqdm
-import sys
 from yammbs import MoleculeStore
 from openff.units import unit
 import click
+import os
 import logging
 logging.getLogger("openff").setLevel(logging.ERROR)
 
@@ -304,14 +304,14 @@ def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,filter_pattern=No
 @click.command()
 @click.option('--db',default=None,help='SQlite database to read from (if using)')
 @click.option('--mm_dir',default=None,help='Directory with MM optimization SDF files (if not reading from database)')
-@click.option('--qm_dir',default=None,help='directory with QM optimization SDF files (if not reading from database)')
-@click.option('--ff_yammbs',default='openff-2.1.0.offxml',help='Force field used to calculate geometries with yammbs (if reading from database)')
-@click.option('--ff_file',default='openff-2.1.0.offxml',help='Force field to group parameters by')
-@click.option('--conformers',default=False,help='Whether to use all conformers. If False, just use the first conformer for each molecule')
+@click.option('--qm_dir',default=None,help='Directory with QM optimization SDF files (if not reading from database)')
+@click.option('--ff_yammbs',default='openff-2.1.0.offxml',help='Force field used to calculate geometries with yammbs (if reading from database). If not provided, it will use the first stored force field in the database.')
+@click.option('--ff_file',default='openff-2.1.0.offxml',help='Force field to group parameters by.')
+@click.option('--conformers',default=False,help='Whether to use all conformers. If False, just use the first conformer for each molecule. Note that setting this to True can lead to very large files and long run times.')
 @click.option('--dir',default = '.',help='Directory where QM and MM directories are located')
-@click.option('--label',default=None,help='Label to save data files with')
-@click.option('--filter',default=None,help='SMARTS pattern to filter for. Must have at least one tagged atom')
-@click.option('--problem_file',default=[],multiple=True,help='File(s) listing QCAIDs of conformers to exclude from analysis')
+@click.option('--label',default=None,help='Label to save data files with. Data will be stored in a directory with this name.')
+@click.option('--filter',default=None,help='SMARTS pattern to filter for. Must have at least one tagged atom.')
+@click.option('--problem_file',default=[],multiple=True,help='File(s) listing QCAIDs of conformers to exclude from analysis.')
 def main(db,mm_dir,qm_dir,ff_yammbs,ff_file,conformers,dir,label,filter,problem_file):
     # Collecting data for all molecules
     bond_data_dict = {}
@@ -343,16 +343,22 @@ def main(db,mm_dir,qm_dir,ff_yammbs,ff_file,conformers,dir,label,filter,problem_
         label = '.'.join(ff_file.split('/')[-1].split('.')[:-1])
         print('WARNING: No label provided; saving data using force field name ',label)
 
-    with open('bonds_qmv{}.json'.format(label),'w') as jsonfile:
+    # Make data directory
+    try:
+        os.mkdir(label)
+    except FileExistsError:
+        pass
+
+    with open('{}/bonds_qmv{}.json'.format(label,label),'w') as jsonfile:
         json.dump(bond_data_dict,jsonfile,indent=4)
 
-    with open('angles_qmv{}.json'.format(label),'w') as jsonfile:
+    with open('{}/angles_qmv{}.json'.format(label,label),'w') as jsonfile:
         json.dump(angle_data_dict,jsonfile,indent=4)
 
-    with open('propers_qmv{}.json'.format(label),'w') as jsonfile:
+    with open('{}/propers_qmv{}.json'.format(label,label),'w') as jsonfile:
         json.dump(proper_data_dict,jsonfile,indent=4)
 
-    with open('impropers_qmv{}.json'.format(label),'w') as jsonfile:
+    with open('{}/impropers_qmv{}.json'.format(label,label),'w') as jsonfile:
         json.dump(improper_data_dict,jsonfile,indent=4)
 
 

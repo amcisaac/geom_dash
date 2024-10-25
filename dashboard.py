@@ -261,10 +261,10 @@ except IndexError:
     port = 8050
 
 # First load in all data so it's available easily for toggling
-BOND_DATA_FILE='bonds_qmv{}.json'.format(suffix)
-ANGLE_DATA_FILE='angles_qmv{}.json'.format(suffix)
-PROPER_DATA_FILE='propers_qmv{}.json'.format(suffix)
-IMPROPER_DATA_FILE='impropers_qmv{}.json'.format(suffix)
+BOND_DATA_FILE='{}/bonds_qmv{}.json'.format(suffix,suffix)
+ANGLE_DATA_FILE='{}/angles_qmv{}.json'.format(suffix,suffix)
+PROPER_DATA_FILE='{}/propers_qmv{}.json'.format(suffix,suffix)
+IMPROPER_DATA_FILE='{}/impropers_qmv{}.json'.format(suffix,suffix)
 
 with open(BOND_DATA_FILE,'r') as jsonfile:
     BOND_JSON = dict(json.load(jsonfile))
