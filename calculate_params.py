@@ -282,7 +282,10 @@ def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,filter_pattern=No
 
         qca_id = qm_mol_rdkit.GetPropsAsDict()['Record QCArchive'] # This would have to be manually modified if you use a different naming convention
         if qca_id not in outliers:
-            mapped_smiles = qm_mol.to_smiles(mapped=True)
+            try:
+                mapped_smiles = qm_mol_rdkit.GetPropsAsDict()['Mapped SMILES']
+            except KeyError:
+                mapped_smiles = qm_mol.to_smiles(mapped=True)
 
             topol = Topology.from_molecules([qm_mol])
             mol_force_list = ff.label_molecules(topol) # dictionary of forces for the molecule, keys are type of force ('Bonds', 'Angles', etc)
