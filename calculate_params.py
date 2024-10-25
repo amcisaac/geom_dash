@@ -252,29 +252,27 @@ def get_mols_from_sqlite(sqlite_store,ff_file,ff_yammbs,all_data_dicts,filter_pa
 def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,filter_pattern=None,conformers=False,dir = '.',outliers=None):
     # This function is written using my conformer/molecule naming convention.
     # Make sure to modify it if you use a different convention.
-
-    # Obtain list of structures from a text file
-    if conformers:
-        compound_list = dir + 'all_molecules.txt'
-    else:
-        compound_list = dir + 'compound.list'
+    # Structures should be named mol-i-conf-j.sdf for this script to work
 
     qm_dir = dir + qm_dir0
     mm_dir = dir + mm_dir0
     print('Loading QM structures from ',qm_dir)
     print('Loading MM structures from ',mm_dir)
-    print('Obtaining file names from ',compound_list)
+
+    # Obtain list of structures from directory
+    if conformers:
+        all_mols = sorted(os.listdir(qm_dir))
+    else:
+        all_mols = sorted(np.unique(['-'.join(filename.split('-')[:-2]) for filename in os.listdir(qm_dir)]))
 
     print('Grouping parameters based on provided force field ',ff_file)
     ff = ForceField(ff_file,allow_cosmetic_attributes=True)
-
-    all_mols = np.loadtxt(compound_list,dtype='str')
 
     bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,qm_data_dict,mm_data_dict = all_data_dicts
     for mol in tqdm.tqdm(all_mols,desc='Calculating geometric parameters'): # Note this progress bar will index number of conformers, while SQLite indexes number of molecules
 
         if not conformers:
-            mol += '-00.sdf'
+            mol += '-conf-00.sdf'
 
         qm_file = qm_dir +'/'+ mol
         mm_file = mm_dir +'/'+ mol
@@ -294,7 +292,7 @@ def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,filter_pattern=No
 
 
             try:
-                add_mol_to_dict(qm_mol_rdkit, mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter_pattern=filter_pattern)
+                add_mol_to_dict(qm_mol_rdkit, mm_mol_rdkit, mapped_smiles,qca_id,mol_force_list,bond_data_dict,angle_data_dict,proper_data_dict,improper_data_dict,filter=filter_pattern)
 
             except OSError: # Usually file not found
                 print('Error with molecule ',mol)
@@ -305,10 +303,10 @@ def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,filter_pattern=No
 @click.option('--db',default=None,help='SQlite database to read from (if using)')
 @click.option('--mm_dir',default=None,help='Directory with MM optimization SDF files (if not reading from database)')
 @click.option('--qm_dir',default=None,help='Directory with QM optimization SDF files (if not reading from database)')
-@click.option('--ff_yammbs',default='openff-2.1.0.offxml',help='Force field used to calculate geometries with yammbs (if reading from database). If not provided, it will use the first stored force field in the database.')
+@click.option('--ff_yammbs',default=None,help='Force field used to calculate geometries with yammbs (if reading from database). If not provided, it will use the first stored force field in the database.')
 @click.option('--ff_file',default='openff-2.1.0.offxml',help='Force field to group parameters by.')
 @click.option('--conformers',default=False,help='Whether to use all conformers. If False, just use the first conformer for each molecule. Note that setting this to True can lead to very large files and long run times.')
-@click.option('--dir',default = '.',help='Directory where QM and MM directories are located')
+@click.option('--dir',default = './',help='Directory where QM and MM directories are located')
 @click.option('--label',default=None,help='Label to save data files with. Data will be stored in a directory with this name.')
 @click.option('--filter',default=None,help='SMARTS pattern to filter for. Must have at least one tagged atom.')
 @click.option('--problem_file',default=[],multiple=True,help='File(s) listing QCAIDs of conformers to exclude from analysis.')
@@ -333,7 +331,7 @@ def main(db,mm_dir,qm_dir,ff_yammbs,ff_file,conformers,dir,label,filter,problem_
 
     # If no yammbs database is provided, attempt to read from qm and mm directories
     if db == None:
-        get_mols_from_files(mm_dir,ff_file,qm_dir,all_data_dicts,filter_pattern=filter,conformers=conformers,dir=dir)
+        get_mols_from_files(mm_dir,ff_file,qm_dir,all_data_dicts,filter_pattern=filter,conformers=conformers,dir=dir,outliers=problem_ids)
 
     # If yammbs database is provided, calculate parameters based on stored geometries
     else:
