@@ -280,7 +280,12 @@ def get_mols_from_files(mm_dir0,ff_file,qm_dir0,all_data_dicts,filter_pattern=No
         qm_mol = Molecule(qm_file,allow_undefined_stereo=True)
         qm_mol_rdkit = Chem.SDMolSupplier(qm_file,removeHs=False)[0]
 
-        qca_id = qm_mol_rdkit.GetPropsAsDict()['Record QCArchive'] # This would have to be manually modified if you use a different naming convention
+        try:
+            qca_id = qm_mol_rdkit.GetPropsAsDict()['Record QCArchive'] # This would have to be manually modified if you use a different naming convention
+        except KeyError:
+            qca_id = 0
+            if len(outliers)>0:
+                print('WARNING: QCArchive ID not present in SDF file. All files will be included.')
         if qca_id not in outliers:
             try:
                 mapped_smiles = qm_mol_rdkit.GetPropsAsDict()['Mapped SMILES']
