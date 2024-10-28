@@ -18,7 +18,7 @@ First you must have two directories of molecular structures, one with SDF files 
 They can be in an arbitrary location, passed with the `--dir` flag.
 Within each directory, molecules should be named according to the convention mol-i-conf-j.sdf, where i is the molecule number (can be anything) and j is the two-digit conformer number within that molecule (e.g. 00, 01, 02...).
 If using the default option to only analyze one conformer per molecule (`--conformers False`), the code expects each molecule to have `mol-i-conf-00.sdf`, or that molecule will be skipped. 
-SDF files must have a field called `Record QCArchive` if you want to use the `problem_file` option to filter out problematic QCArchive IDs.
+SDF files must have a field called `Record QCArchive` with the QCArchive ID (or some other ID) if you want to use the `problem_file` option to filter out problematic QCArchive IDs.
 
 ### Calculation options
 If using a YAMMBS database, the following options are needed:
