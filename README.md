@@ -80,4 +80,4 @@ Additionally, you can filter the data based on a SMIRKs pattern, to identify tre
 
 ## Note on the code
 
-Some of this code was borrowed from the OpenFF docs or from Brent's Lipoma repo [here](https://github.com/ntBre/lipoma). These instances are noted in the comments of the code.
+Some of the dashboard code was borrowed from the OpenFF docs or from Brent's Lipoma repo [here](https://github.com/ntBre/lipoma). These instances are noted in the comments of the code.
