@@ -1,6 +1,8 @@
-# QM vs MM geometry parameter dashboard
+# QM vs MM geometry comparison, grouped by parameter
 
 This code calculates the geometric paramenters (e.g. bond lenght, angles, dihedral angles) for a set of molecules and compares the values between the QM-optimized molecule and MM-optimized molecule.
+
+There are two ways to visualize the data, one using an interactive dashboard, and one static.
 
 ## Python environment
 The conda environment used to develop the code is included as `env.yaml`. This is just a minimal environment needed to work with this code, if you need other packages, please add them.
@@ -61,7 +63,8 @@ This will create four data files, one for bond lengths, one for angles, one for 
 
 Examples using both YAMMBS databases and SDF files with a variety of options can be found in the `example` directory.
 
-## Visualizing the parameters
+## Visualizing the errors
+### Interactive dashboard
 Once you have these data files, you can visualize them by running the dashboard:
 
 `python dashboard.py [data directory]`
@@ -77,6 +80,19 @@ Additionally, you can filter the data based on a SMIRKs pattern, to identify tre
 
 ![Screen Shot 2024-01-04 at 5 58 21 PM](https://github.com/amcisaac/geom_dash/assets/29759281/abb8d1e9-f172-440c-82d2-5d4e2dc8f2cc)
 
+### Static error displays
+These errors can also be calculated and displayed using the script `plot_param_hist.py`, which plots a boxplot and histogram of the MM - QM geometry errors, grouped by parameter.
+
+The code has the following options:
+
+`--data_dir` ,multiple=True,help='Directory where data jsons are')
+@click.option('--labels',multiple=True,default=[],help='Short label for each data directory to include in legend. If not provided, will use the data_dir')
+@click.option('--ff_file',default='',help='Force field whose parameters should be used for grouping (optional)')
+@click.option('--bonds',multiple=True,default=[],help="Parameter id of bonds to plot. If 'all', will plot all bonds defined by ff_file")
+@click.option('--angles',multiple=True,default=[],help="Parameter id of angles to plot. If 'all', will plot all angles defined by ff_file")
+@click.option('--propers',multiple=True,default=[],help="Parameter id of proper torsions to plot. If 'all', will plot all proper torsions defined by ff_file")
+@click.option('--impropers',multiple=True,default=[],help="Parameter id of improper torsions to plot. If 'all', will plot all improper torsions defined by ff_file")
+@click.option('--save_dir',help='Directory to save the data')
 
 ## Note on the code
 
