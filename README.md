@@ -86,17 +86,27 @@ These errors can also be calculated and displayed using the script `plot_param_h
 The code has the following options:
 
 `--data_dir` Directory where data jsons are. If multiple are provided, will plot errors from multiple benchmarking runs.
+
 `--save_dir`: Directory to save the plots
+
 `--labels`: Short label for each data directory to include in legend. If not provided, will use the data_dir. Must be one for each data directory.
+
 `--bonds`: Parameter id of bonds to plot. If 'all', will plot all bonds defined by ff_file
+
 `--angles`: Parameter id of angles to plot. If 'all', will plot all angles defined by ff_file
+
 `--propers`: Parameter id of proper torsions to plot. If 'all', will plot all proper torsions defined by ff_file
+
 `--impropers`: Parameter id of improper torsions to plot. If 'all', will plot all improper torsions defined by ff_file
+
 `--ff_file`: Force field for which all parameters should be plotted, if any of the above options are set to 'all'
 
 There is an example of how to run the code in the `example` directory.
 
 Examples of the type of plots that the code can produce:
+
+![a31_hist](https://github.com/user-attachments/assets/f97f7f60-956c-4a49-8a08-7bf1a2a47c9c)
+![a31_boxplot](https://github.com/user-attachments/assets/1bc13bc9-0e08-410d-aaeb-47460f43dc1f)
 
 Please note that if you are plotting multiple force fields that do not have the same parameter definitions, the behavior can be unstable, and you may have to manually modify the code. I put in fixes for the errors I've run into, but different errors will come up for different scenarios
 
